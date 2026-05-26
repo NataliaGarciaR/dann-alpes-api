@@ -22,7 +22,7 @@ client = MongoClient(
 )
 
 db = client["dann_alpes_nosql"]
-resenas = db["resenas"]
+resenas = db["reseñas"]
 
 
 def convertir_id(doc):
