@@ -203,3 +203,199 @@ def destacar_resena(resena_id: str):
     )
 
     return {"mensaje": "Reseña destacada"}
+
+
+# RFC1 - Top hoteles por calificación
+@app.get("/rfc1/top-hoteles")
+def rfc1():
+
+    pipeline = [
+
+        {
+            "$group": {
+                "_id": "$hotel_id",
+
+                "promedio_calificacion": {
+                    "$avg": "$calificacion"
+                },
+
+                "total_resenas": {
+                    "$sum": 1
+                }
+            }
+        },
+
+        {
+            "$sort": {
+                "promedio_calificacion": -1
+            }
+        },
+
+        {
+            "$limit": 10
+        }
+    ]
+
+    resultado = list(
+        resenas.aggregate(pipeline)
+    )
+
+    return resultado
+
+
+# RFC2 - Evolución reputación hotel
+@app.get("/rfc2/evolucion/{hotel_id}")
+def rfc2(hotel_id: int):
+
+    pipeline = [
+
+        {
+            "$match": {
+                "hotel_id": hotel_id
+            }
+        },
+
+        {
+            "$group": {
+
+                "_id": {
+
+                    "mes": {
+                        "$substr": [
+                            "$fecha_creacion",
+                            0,
+                            7
+                        ]
+                    }
+                },
+
+                "promedio_calificacion": {
+                    "$avg": "$calificacion"
+                },
+
+                "cantidad_resenas": {
+                    "$sum": 1
+                }
+            }
+        },
+
+        {
+            "$sort": {
+                "_id.mes": 1
+            }
+        }
+    ]
+
+    resultado = list(
+        resenas.aggregate(pipeline)
+    )
+
+    return resultado
+
+
+# RFC3 - Perfil comparativo por ciudad
+@app.get("/rfc3/perfil-ciudad/{ciudad}")
+def rfc3(ciudad: str):
+
+    pipeline = [
+
+        {
+            "$match": {
+                "ciudad": ciudad
+            }
+        },
+
+        {
+            "$group": {
+
+                "_id": "$hotel_id",
+
+                "promedio_calificacion": {
+                    "$avg": "$calificacion"
+                },
+
+                "total_resenas": {
+                    "$sum": 1
+                },
+
+                "con_respuesta": {
+                    "$sum": {
+                        "$cond": [
+                            {
+                                "$ifNull": [
+                                    "$respuesta_admin",
+                                    False
+                                ]
+                            },
+                            1,
+                            0
+                        ]
+                    }
+                },
+
+                "destacadas": {
+                    "$sum": {
+                        "$cond": [
+                            {
+                                "$eq": [
+                                    "$destacada",
+                                    True
+                                ]
+                            },
+                            1,
+                            0
+                        ]
+                    }
+                }
+            }
+        },
+
+        {
+            "$project": {
+
+                "_id": 0,
+
+                "hotel_id": "$_id",
+
+                "promedio_calificacion": 1,
+
+                "total_resenas": 1,
+
+                "porcentaje_respuesta_admin": {
+                    "$multiply": [
+                        {
+                            "$divide": [
+                                "$con_respuesta",
+                                "$total_resenas"
+                            ]
+                        },
+                        100
+                    ]
+                },
+
+                "porcentaje_destacadas": {
+                    "$multiply": [
+                        {
+                            "$divide": [
+                                "$destacadas",
+                                "$total_resenas"
+                            ]
+                        },
+                        100
+                    ]
+                }
+            }
+        },
+
+        {
+            "$sort": {
+                "promedio_calificacion": -1
+            }
+        }
+    ]
+
+    resultado = list(
+        resenas.aggregate(pipeline)
+    )
+
+    return resultado
